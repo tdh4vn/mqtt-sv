@@ -8,7 +8,11 @@ const mosca = require('mosca'),
   },
   settings = {
     port: 1883,
-    backend: ascoltatore
+    backend: ascoltatore,
+    http: {
+      port: 5000,
+      bundle: true
+    }
   },
   server = new mosca.Server(settings),
   NodeModel = require('./models/Node'),
@@ -31,15 +35,17 @@ server.on('clientConnected', function (client) {
     console.log('done!', client.id);
   });
 
+
+
   NodeModel.findByIdAndUpdate({
     _id: client.id
   }, {
-    $set: {
-      connected: 1
-    }
-  }, (err, ok) => {
+      $set: {
+        connected: 1
+      }
+    }, (err, ok) => {
 
-  });
+    });
 
 });
 
@@ -59,12 +65,12 @@ server.on('clientDisconnected', function (client) {
   NodeModel.findByIdAndUpdate({
     _id: client.id
   }, {
-    $set: {
-      connected: 0
-    }
-  }, (err, ok) => {
+      $set: {
+        connected: 0
+      }
+    }, (err, ok) => {
 
-  });
+    });
 });
 
 async function processValue(topic, val, type) {
@@ -78,12 +84,12 @@ async function processValue(topic, val, type) {
       DataModel.findByIdAndUpdate({
         _id: lastValArr[1]
       }, {
-        $set: {
-          lastUpdate: new Date()
-        }
-      }, (exx, rr) => {
+          $set: {
+            lastUpdate: new Date()
+          }
+        }, (exx, rr) => {
 
-      })
+        })
     } else {
       a = new DataModel({
         type: type,
