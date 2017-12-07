@@ -1,4 +1,16 @@
 'use strict'
+const fs = require('fs')
+const SECURE_KEY = '/etc/letsencrypt/live/seeyourair.com/privkey.pem',
+  SECURE_CERT = '/etc/letsencrypt/live/seeyourair.com/fullchain.pem'
+
+const privateKey = fs.readFileSync(SECURE_KEY, 'utf8'),
+  certificate = fs.readFileSync(SECURE_CERT, 'utf8')
+
+var credentials = {
+  key: privateKey,
+  cert: certificate
+}
+
 const mosca = require('mosca'),
   ascoltatore = {
     type: 'mongo',
@@ -7,10 +19,19 @@ const mosca = require('mosca'),
     mongo: {}
   },
   settings = {
-    port: 1883,
     backend: ascoltatore,
     http: {
       port: 5000,
+      bundle: true
+    },
+    secure: {
+      port: 5443,
+      keyPath: SECURE_KEY,
+      certPath: SECURE_CERT,
+    },
+    allowNonSecure: true,
+    https: {
+      port: 6443,
       bundle: true
     }
   },
