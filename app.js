@@ -1,5 +1,6 @@
-'use strict'
-const fs = require('fs')
+// 'use strict'
+const fs = require('fs'),
+  mongoose = require('mongoose')
 const SECURE_KEY = '/etc/letsencrypt/live/seeyourair.com/privkey.pem',
   SECURE_CERT = '/etc/letsencrypt/live/seeyourair.com/fullchain.pem'
 
@@ -10,6 +11,12 @@ var credentials = {
   key: privateKey,
   cert: certificate
 }
+
+var config = require('./config/token')
+
+config = config['dev'];
+mongoose.connect(config.dbURL, config.dbOptions)
+mongoose.Promise = global.Promise
 
 const mosca = require('mosca'),
   ascoltatore = {
@@ -42,6 +49,8 @@ const mosca = require('mosca'),
   rclient = redis.createClient(),
   bluebird = require('bluebird')
 
+bluebird.promisifyAll(redis.RedisClient.prototype)
+bluebird.promisifyAll(redis.Multi.prototype)
 
 server.on('clientConnected', function (client) {
   var message = {
@@ -61,12 +70,12 @@ server.on('clientConnected', function (client) {
   NodeModel.findByIdAndUpdate({
     _id: client.id
   }, {
-      $set: {
-        connected: 1
-      }
-    }, (err, ok) => {
+    $set: {
+      connected: 1
+    }
+  }, (err, ok) => {
 
-    });
+  });
 
 });
 
@@ -86,53 +95,76 @@ server.on('clientDisconnected', function (client) {
   NodeModel.findByIdAndUpdate({
     _id: client.id
   }, {
-      $set: {
-        connected: 0
-      }
-    }, (err, ok) => {
+    $set: {
+      connected: 0
+    }
+  }, (err, ok) => {
 
-    });
+  });
 });
 
 async function processValue(topic, val, type) {
   const top = topic + type,
     lastValue = await rclient.getAsync(top)
+  let a = null
 
-  console.log('OK', topic, val, lastValue)
   if (lastValue) {
     const lastValArr = lastValue.split('_')
-    if (+lastValArr[0] === val) {
-      DataModel.findByIdAndUpdate({
-        _id: lastValArr[1]
-      }, {
-          $set: {
-            lastUpdate: new Date()
-          }
-        }, (exx, rr) => {
-
-        })
-    } else {
-      a = new DataModel({
-        type: type,
-        value: val,
-        nodeId: topic
-      })
-      a.save((ex, r) => {
-        if (!ex && r) {
-          rclient.set(top, val + '_' + r._id.toString())
-        }
-      })
-    }
-  } else {
+    // console.log('OK')
+    // if (+lastValArr[0] === val) {
+    //   DataModel.findByIdAndUpdate({
+    //     _id: lastValArr[1]
+    //   }, {
+    //     $set: {
+    //       lastUpdate: new Date()
+    //     }
+    //   }, (exx, rr) => {
+    //     console.log(exx, rr)
+    //   })
+    // } else {
     a = new DataModel({
-      type: 0,
+      type: type,
       value: val,
       nodeId: topic
     })
+    // console.log('z', a.save())
+    // console.log('z', a.save())
+    // a.save((err) => {
+    //   console.log('vcllllllll', a)
+    // })
+    // const res = await a.save()
+    // console.log(res)
+  //  then((z) => {
+  //     console.log(z)
+  //     rclient.set(top, val + '_' + r._id.toString())
+  //   }).catch((err) => {
+  //     console.log(err)
+  //   })
     a.save((ex, r) => {
+      // console.log('err', ex, r)
       if (!ex && r) {
         rclient.set(top, val + '_' + r._id.toString())
       }
+    })
+    // }
+  } else {
+    a = new DataModel({
+      type: type,
+      value: val,
+      nodeId: topic
+    })
+    // a.save((ex, r) => {
+    //   console.log(ex, rr)
+    //   if (!ex && r) {
+    //     rclient.set(top, val + '_' + r._id.toString())
+    //   }
+    // })
+    a.save().then((z) => {
+      console.log(z)
+      
+      rclient.set(top, val + '_' + r._id.toString())
+    }).catch(() => {
+
     })
   }
 }
@@ -161,7 +193,7 @@ server.on('published', function (packet, client) {
       }
     }
   } else {
-    console.log(topic, 'x')
+    // console.log(topic, 'x')
   }
 });
 
